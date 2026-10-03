@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<script src="//play.workadventure.localhost:8880/iframe_api.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:transparent;font-family:sans-serif}
+#wrap{display:flex;gap:4px;padding:4px;background:rgba(0,0,0,0.6);border-radius:8px}
+button{border:none;border-radius:6px;padding:6px 12px;font:bold 11px sans-serif;cursor:pointer;color:#fff;background:rgba(255,255,255,0.15);transition:all 0.15s}
+button:hover{background:rgba(255,255,255,0.3)}
+button.active{background:#4da6ff;color:#fff}
+</style></head><body>
+<div id="wrap">
+  <button data-floor="1">Lt 1</button>
+  <button data-floor="2">Lt 2</button>
+  <button data-floor="3">Lt 3</button>
+  <button data-floor="B">Balkon</button>
+</div>
+<script>
+const FLOORS = {
+    "1": { x: 5, y: 5 },
+    "2": { x: 20, y: 10 },
+    "3": { x: 33, y: 10 },
+    "B": { x: 36, y: 22 },
+};
+const buttons = document.querySelectorAll('button');
+let current = '1';
+
+function setActive(floor) {
+  current = floor;
+  buttons.forEach(b => b.classList.toggle('active', b.dataset.floor === floor));
+}
+
+WA.onInit().then(() => {
+  buttons.forEach(b => b.addEventListener('click', () => {
+    const floor = b.dataset.floor;
+    if (floor === current) return;
+    setActive(floor);
+    const dest = FLOORS[floor];
+    WA.player.teleport(dest.x * 32 + 16, dest.y * 32 + 16);
+  }));
+});
+
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'setFloor') setActive(e.data.floor);
+});
+
+setActive('1');
+</script>
+</body></html>

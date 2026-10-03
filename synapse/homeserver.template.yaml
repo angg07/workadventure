@@ -10,7 +10,7 @@
 # each option, go to docs/usage/configuration/config_documentation.md or
 # https://matrix-org.github.io/synapse/latest/usage/configuration/config_documentation.html
 server_name: "matrix.workadventure.localhost"
-public_baseurl: http://matrix.workadventure.localhost/
+public_baseurl: http://matrix.workadventure.localhost:8890/
 pid_file: /data/homeserver.pid
 listeners:
   - port: 8008
@@ -44,7 +44,7 @@ jwt_config:
 oidc_providers:
   - idp_id: oidc-server-mock
     idp_name: OIDC Server Mock
-    issuer: "http://oidc.workadventure.localhost"
+    issuer: "http://oidc.workadventure.localhost:8890"
     skip_verification: true
     client_id: "authorization-code-client-id"
     client_secret: "authorization-code-client-secret"
@@ -75,8 +75,8 @@ oidc_providers:
 
 sso:
   client_whitelist:
-    - http://pusher.workadventure.localhost/
-    - http://play.workadventure.localhost/
+    - http://pusher.workadventure.localhost:8890/
+    - http://play.workadventure.localhost:8890/
 
 
 enable_registration: true

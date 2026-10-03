@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0}
+body{background:transparent;overflow:hidden}
+#wrap{position:relative;width:280px;height:160px;border:2px solid rgba(255,255,255,0.3);border-radius:8px;overflow:hidden;opacity:0.85;cursor:pointer}
+#wrap:hover{opacity:1}
+#bg{width:100%;height:100%}
+canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+#label{position:absolute;top:4px;left:8px;color:#fff;font:bold 10px sans-serif;text-shadow:0 0 3px #000}
+</style></head><body>
+<div id="wrap">
+  <img id="bg" src="minimap.png">
+  <canvas id="c" width="280" height="160"></canvas>
+  <div id="label">MINIMAP</div>
+</div>
+<script>
+const MAP_W = 44, MAP_H = 25, TILE = 32;
+const CW = 280, CH = 160;
+const scaleX = CW / (MAP_W * TILE);
+const scaleY = CH / (MAP_H * TILE);
+const ctx = document.getElementById('c').getContext('2d');
+const players = new Map(); // id -> {x,y,name}
+let myPos = {x:0, y:0};
+
+function draw() {
+  ctx.clearRect(0, 0, CW, CH);
+  // Draw other players as blue dots
+  players.forEach((p) => {
+    ctx.fillStyle = '#4da6ff';
+    ctx.beginPath();
+    ctx.arc(p.x * scaleX, p.y * scaleY, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  // Draw self as green dot
+  ctx.fillStyle = '#22ff44';
+  ctx.beginPath();
+  ctx.arc(myPos.x * scaleX, myPos.y * scaleY, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// Listen for messages from WA script
+window.addEventListener('message', (e) => {
+  if (!e.data || !e.data.type) return;
+  if (e.data.type === 'updateSelf') {
+    myPos = e.data;
+    draw();
+  } else if (e.data.type === 'updatePlayer') {
+    players.set(e.data.id, e.data);
+    draw();
+  } else if (e.data.type === 'removePlayer') {
+    players.delete(e.data.id);
+    draw();
+  }
+});
+setInterval(draw, 1000);
+</script>
+</body></html>

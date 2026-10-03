@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html><head><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;font-size:12px;background:rgba(15,15,20,0.92);color:#ddd;
+    padding:14px;border-radius:12px;overflow-y:auto;height:100vh;backdrop-filter:blur(8px)}
+.title{font-size:14px;font-weight:700;color:#fff;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.section{margin-bottom:14px}
+.section-label{font-size:10px;text-transform:uppercase;color:#666;letter-spacing:1px;margin-bottom:6px}
+.zone-row{display:flex;align-items:center;margin-bottom:4px;height:22px}
+.zone-name{width:48px;font-size:11px;color:#aaa;flex-shrink:0}
+.zone-bar-bg{flex:1;height:18px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden}
+.zone-bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:6px;
+    font-size:10px;color:#fff;font-weight:600;transition:width 0.4s ease;min-width:20px}
+.player-row{display:flex;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.player-row:last-child{border-bottom:none}
+.dot{width:8px;height:8px;border-radius:50%;margin-right:8px;flex-shrink:0}
+.player-name{flex:1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-zone-tag{font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.08);color:#999}
+.time-row{display:flex;justify-content:space-between;padding:3px 0}
+.time-val{color:#4fc3f7;font-variant-numeric:tabular-nums;font-weight:600}
+.empty{color:#555;font-style:italic;font-size:11px}
+.heatmap-grid{display:grid;gap:1px;margin-top:4px}
+.hcell{border-radius:1px;aspect-ratio:1.6}
+.summary{display:flex;gap:12px;margin-bottom:10px}
+.stat{text-align:center}
+.stat-num{font-size:20px;font-weight:700;color:#4fc3f7}
+.stat-label{font-size:9px;color:#666;text-transform:uppercase}
+</style></head><body>
+<div class="title">📊 Area Analytics</div>
+
+<div class="summary">
+    <div class="stat"><div class="stat-num" id="total-players">0</div><div class="stat-label">Online</div></div>
+    <div class="stat"><div class="stat-num" id="total-zones">0</div><div class="stat-label">Active Zones</div></div>
+    <div class="stat"><div class="stat-num" id="session-time">0m</div><div class="stat-label">Session</div></div>
+</div>
+
+<div class="section">
+    <div class="section-label">Zone Occupancy</div>
+    <div id="zone-bars"></div>
+</div>
+
+<div class="section">
+    <div class="section-label">Who's Where</div>
+    <div id="player-list"></div>
+</div>
+
+<div class="section">
+    <div class="section-label">Your Time (Session)</div>
+    <div id="time-tracking"></div>
+</div>
+
+<div class="section">
+    <div class="section-label">Density Heatmap</div>
+    <div id="heatmap"></div>
+</div>
+
+<script>
+const ZONES={"1":{label:"Lt 1",color:"#4caf50"},"2":{label:"Lt 2",color:"#2196f3"},
+    "3":{label:"Lt 3",color:"#ff9800"},"B":{label:"Balkon",color:"#9c27b0"}};
+const ZONE_ORDER=["1","2","3","B"];
+
+let state={players:{},selfZone:null,zoneTimes:{"1":0,"2":0,"3":0,"B":0},
+    selfX:0,selfY:0,sessionStart:Date.now()};
+// heatmap accumulator: track visit counts per grid cell
+const heatAccum={};
+
+function fmt(ms){
+    const m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000);
+    return m>0?m+"m "+s+"s":s+"s";
+}
+
+function render(){
+    const counts={"1":0,"2":0,"3":0,"B":0};
+    const byZone={"1":[],"2":[],"3":[],"B":[]};
+    // count self
+    if(state.selfZone){counts[state.selfZone]++;byZone[state.selfZone].push({name:"You (🟢)",self:true})}
+    // count others
+    for(const p of Object.values(state.players)){
+        if(p.zone&&counts[p.zone]!==undefined){
+            counts[p.zone]++;
+            byZone[p.zone].push({name:p.name,self:false});
+        }
+    }
+    const total=Object.values(counts).reduce((a,b)=>a+b,0);
+    const activeZones=Object.values(counts).filter(c=>c>0).length;
+    const sessionMs=Date.now()-state.sessionStart;
+
+    document.getElementById("total-players").textContent=total;
+    document.getElementById("total-zones").textContent=activeZones;
+    document.getElementById("session-time").textContent=fmt(sessionMs);
+
+    // zone bars
+    const max=Math.max(1,...Object.values(counts));
+    let bh="";
+    for(const z of ZONE_ORDER){
+        const c=counts[z],pct=Math.max((c/max)*100,c>0?12:3);
+        bh+=`<div class="zone-row"><span class="zone-name">${ZONES[z].label}</span>
+            <div class="zone-bar-bg"><div class="zone-bar-fill" style="width:${pct}%;background:${ZONES[z].color}">${c}</div></div></div>`;
+    }
+    document.getElementById("zone-bars").innerHTML=bh;
+
+    // player list
+    let ph="";
+    for(const z of ZONE_ORDER){
+        for(const p of byZone[z]){
+            ph+=`<div class="player-row"><div class="dot" style="background:${p.self?"#4caf50":ZONES[z].color}"></div>
+                <span class="player-name">${p.name}</span>
+                <span class="player-zone-tag">${ZONES[z].label}</span></div>`;
+        }
+    }
+    if(!ph)ph='<div class="empty">Belum ada pemain</div>';
+    document.getElementById("player-list").innerHTML=ph;
+
+    // time tracking
+    let th="";
+    for(const z of ZONE_ORDER){
+        const ms=state.zoneTimes[z]||0;
+        th+=`<div class="time-row"><span>${ZONES[z].label}</span><span class="time-val">${fmt(ms)}</span></div>`;
+    }
+    document.getElementById("time-tracking").innerHTML=th;
+
+    // heatmap - 22x13 grid (half of 44x25)
+    const W=22,H=13;
+    // accumulate current positions
+    if(state.selfX!==undefined&&state.selfY!==undefined){
+        const gx=Math.min(W-1,Math.floor(state.selfX/64));
+        const gy=Math.min(H-1,Math.floor(state.selfY/64));
+        heatAccum[gy*W+gx]=(heatAccum[gy*W+gx]||0)+1;
+    }
+    for(const p of Object.values(state.players)){
+        if(p.x!==undefined){
+            const gx=Math.min(W-1,Math.floor(p.x/64));
+            const gy=Math.min(H-1,Math.floor(p.y/64));
+            heatAccum[gy*W+gx]=(heatAccum[gy*W+gx]||0)+1;
+        }
+    }
+    const maxH=Math.max(1,...Object.values(heatAccum));
+    let hh=`<div class="heatmap-grid" style="grid-template-columns:repeat(${W},1fr)">`;
+    for(let y=0;y<H;y++){
+        for(let x=0;x<W;x++){
+            const v=heatAccum[y*W+x]||0;
+            const i=v/maxH;
+            if(i<0.01){hh+=`<div class="hcell" style="background:rgba(255,255,255,0.03)"></div>`}
+            else{
+                const r=Math.floor(50+205*i),g=Math.floor(150*(1-i)),b=Math.floor(50*(1-i));
+                hh+=`<div class="hcell" style="background:rgba(${r},${g},${b},${0.15+i*0.7})"></div>`;
+            }
+        }
+    }
+    hh+="</div>";
+    document.getElementById("heatmap").innerHTML=hh;
+}
+
+window.addEventListener("message",e=>{
+    if(e.data?.type==="analyticsUpdate"){
+        state.players=e.data.players||{};
+        state.selfZone=e.data.selfZone;
+        state.zoneTimes=e.data.zoneTimes||state.zoneTimes;
+        state.selfX=e.data.selfX;
+        state.selfY=e.data.selfY;
+        render();
+    }
+});
+render();
+</script>
+</body></html>
